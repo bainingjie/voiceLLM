@@ -1,7 +1,7 @@
 from langchain.chains import ConversationChain
 from langchain.chains.conversation.memory import ConversationBufferWindowMemory
 from langchain_groq import ChatGroq
-
+from langchain.prompts import PromptTemplate
 # Groq API key
 groq_api_key = "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"
 
@@ -18,9 +18,20 @@ groq_chat = ChatGroq(
     model_name=model_name
 )
 
+prompt = PromptTemplate(
+    input_variables=["history", "input"],
+    template='''
+    貴方は愉快な会話できる友達です。毎度の回答はなるべく45文字以内に抑えてください。返答は、質問と同じ言語を使ってください。
+    Current conversation:
+    {history}
+    Human: {input}
+    AI Assistant:"""
+    '''
+)
 # Initialize conversation with memory
 conversation = ConversationChain(
     llm=groq_chat,
+    prompt=prompt,
     memory=memory
 )
 
