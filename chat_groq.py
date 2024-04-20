@@ -1,8 +1,33 @@
-from langchain_core.prompts import ChatPromptTemplate
+from langchain.chains import ConversationChain
+from langchain.chains.conversation.memory import ConversationBufferWindowMemory
 from langchain_groq import ChatGroq
 
-chat = ChatGroq(temperature=0, groq_api_key="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", model_name="llama3-70b-8192")
-prompt = ChatPromptTemplate.from_messages([("human", "Write a haiku about {topic}")])
-chain = prompt | chat
-for chunk in chain.stream({"topic": "The Moon"}):
-    print(chunk.content, end="", flush=True)
+# Groq API key
+groq_api_key = "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"
+
+# Fixed model name and memory length
+model_name = "llama3-70b-8192"
+conversational_memory_length = 5
+
+# Initialize memory
+memory = ConversationBufferWindowMemory(k=conversational_memory_length)
+
+# Initialize Groq Langchain chat object with fixed model
+groq_chat = ChatGroq(
+    groq_api_key=groq_api_key, 
+    model_name=model_name
+)
+
+# Initialize conversation with memory
+conversation = ConversationChain(
+    llm=groq_chat,
+    memory=memory
+)
+
+while True:
+    user_input = input("You: ")
+    if user_input.lower() == "exit":
+        print("Chatbot: Goodbye!")
+        break
+    response = conversation(user_input)
+    print("Chatbot:", response['response'])
