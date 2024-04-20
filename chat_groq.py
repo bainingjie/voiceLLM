@@ -29,5 +29,5 @@ while True:
     if user_input.lower() == "exit":
         print("Chatbot: Goodbye!")
         break
-    response = conversation(user_input)
+    response = conversation.invoke(user_input)  # Updated method call based on deprecation warning
     print("Chatbot:", response['response'])
