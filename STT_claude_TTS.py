@@ -6,6 +6,8 @@ from langchain.chains.conversation.memory import ConversationBufferWindowMemory
 from langchain_groq import ChatGroq
 from langchain.prompts import PromptTemplate
 import threading,time
+from langchain_anthropic import ChatAnthropic
+
 
 # Groq API key
 groq_api_key = "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"
@@ -76,15 +78,13 @@ def send_to_groq(text):
     memory = ConversationBufferWindowMemory(k=conversational_memory_length)
 
     # Initialize Groq Langchain chat object with fixed model
-    groq_chat = ChatGroq(
-        groq_api_key=groq_api_key, 
-        model_name=model_name
-    )
 
+    groq_chat = ChatAnthropic(temperature=0, api_key="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", model_name="claude-3-haiku-20240307")
     prompt = PromptTemplate(
         input_variables=["history", "input"],
         template='''
-        貴方は愉快な会話できる友達です。毎度の回答はなるべく45文字以内に抑えてください。返答は、質問と同じ言語を使ってください。
+        System:貴方は愉快な会話できる友達です。毎度の回答はなるべく45文字以内に抑えてください。返答は、質問と同じ言語を使ってください。
+        
         Current conversation:
         {history}
         Human: {input}
@@ -185,7 +185,6 @@ vad_thread = threading.Thread(target=vad.vad_loop, args=(callback_vad, ))
 mic_thread.start()
 vad_thread.start()
 
-thread_list = threading.enumerate()
-thread_list.remove(threading.main_thread())
-for thread in thread_list:
-    thread.join()
+
+mic_thread.join()
+vad_thread.join()
