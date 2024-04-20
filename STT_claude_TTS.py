@@ -79,7 +79,7 @@ def send_to_groq(text):
 
     # Initialize Groq Langchain chat object with fixed model
 
-    groq_chat = ChatAnthropic(temperature=0, api_key="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", model_name="claude-3-haiku-20240307")
+    groq_chat = ChatAnthropic(temperature=0, api_key="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", model_name="claude-3-haiku-20240307")
     prompt = PromptTemplate(
         input_variables=["history", "input"],
         template='''
