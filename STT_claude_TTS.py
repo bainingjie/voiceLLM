@@ -179,9 +179,9 @@ def callback_vad(flag):
         if len(latest_user_utterance)>1:
             print("sent to groq")
             print(latest_user_utterance)
-            # thread=threading.Thread(target=send_to_groq, args=(latest_user_utterance, ))
-            # thread.start()
-            # thread.join()
+            thread=threading.Thread(target=send_to_groq, args=(latest_user_utterance, ))
+            thread.start()
+            thread.join()
 
 global latest_user_utterance
 latest_user_utterance = None
