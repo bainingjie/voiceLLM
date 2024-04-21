@@ -12,8 +12,8 @@ BUFFER_SIZE=160
 # COLLECTION_LENGTH=100
 # SWITCH_LENGTH=70
 
-COLLECTION_LENGTH=100
-SWITCH_LENGTH=60
+COLLECTION_LENGTH=10
+SWITCH_LENGTH=30
 
 class GOOGLE_WEBRTC():
 
@@ -47,24 +47,40 @@ class GOOGLE_WEBRTC():
             audio_data = self.stream.read(BUFFER_SIZE, exception_on_overflow = False)
             vad_result = self.vad.is_speech(audio_data, RATE)
             self.vad_collection = self.vad_collection[1:] + [vad_result]
-            switch_sum= 0
-            for each in self.vad_collection[(-SWITCH_LENGTH):]:
-                if  each :
-                    flag += 1
-                else:
-                    flag = 0
-                if flag == 3:
-                    switch_sum += 1
-            # print(self.vad_collection,switch_sum,self.vad_collection[(-SWITCH_LENGTH-1)])
-            if switch_sum < 1 and self.vad_collection[(-SWITCH_LENGTH-1)] :
-                # print(self.vad_collection,switch_sum,self.vad_collection[(-SWITCH_LENGTH-1)])
+
+            is_speaking_status=True
+            sum_vad = 0
+            for each in self.vad_collection:
+                if each:
+                    sum_vad +=1
+            if sum_vad <2:
+                is_speaking_status=False
+            elif sum_vad>8:
+                is_speaking_status=True
+
+            if is_speaking_status != self.before_result:
                 if callback != None:
-                    # print("call back called")
                     callback(vad_result)
-            elif not self.vad_collection[-4] and self.vad_collection[-3] and self.vad_collection[-2] and self.vad_collection[-1]:
-                if callback != None:
-                    print("cleared called to")
-                    callback(vad_result)
+                self.before_result = is_speaking_status
+            # self.vad_collection = self.vad_collection[1:] + [vad_result]
+            # switch_sum= 0
+            # for each in self.vad_collection[(-SWITCH_LENGTH):]:
+            #     if  each :
+            #         flag += 1
+            #     else:
+            #         flag = 0
+            #     if flag == 3:
+            #         switch_sum += 1
+            # # print(self.vad_collection,switch_sum,self.vad_collection[(-SWITCH_LENGTH-1)])
+            # if switch_sum < 1 and self.vad_collection[(-SWITCH_LENGTH-1)] :
+            #     # print(self.vad_collection,switch_sum,self.vad_collection[(-SWITCH_LENGTH-1)])
+            #     if callback != None:
+            #         # print("call back called")
+            #         callback(vad_result)
+            # elif not self.vad_collection[-4] and self.vad_collection[-3] and self.vad_collection[-2] and self.vad_collection[-1]:
+            #     if callback != None:
+            #         # print("cleared called to")
+            #         callback(vad_result)
 
 
     def shutdown(self):
