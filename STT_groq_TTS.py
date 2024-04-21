@@ -1,14 +1,23 @@
 import os
 import azure.cognitiveservices.speech as speechsdk
-import vad
+import vad_collection as vad
 from langchain.chains import ConversationChain
 from langchain.chains.conversation.memory import ConversationBufferWindowMemory
 from langchain_groq import ChatGroq
 from langchain.prompts import PromptTemplate
 import threading,time
+from langchain_anthropic import ChatAnthropic
+from dotenv import load_dotenv
+import os
 
-# Groq API key
-groq_api_key = "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"
+
+# .envファイルを読み込む
+load_dotenv()
+
+# 環境変数を取得する
+claude_api_key = os.getenv('ANTHROPIC_API_KEY')
+AZURE_API_KEY = os.getenv('AZURE_API_KEY')
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 # Fixed model name and memory length
 model_name = "llama3-70b-8192"
@@ -46,7 +55,7 @@ speech_key, service_region = "YourSubscriptionKey", "YourServiceRegion"
 def speech_synthesis_with_auto_language_detection_to_speaker(text):
     """performs speech synthesis to the default speaker with auto language detection
        Note: this is a preview feature, which might be updated in future versions."""
-    speech_config = speechsdk.SpeechConfig(subscription="252ced039853473b8acd8e525a7cf279", region="japaneast")
+    speech_config = speechsdk.SpeechConfig(subscription=AZURE_API_KEY, region="japaneast")
 
     # create the auto-detection language configuration without specific languages
     auto_detect_source_language_config = \
@@ -71,20 +80,21 @@ def speech_synthesis_with_auto_language_detection_to_speaker(text):
         if cancellation_details.reason == speechsdk.CancellationReason.Error:
             print("Error details: {}".format(cancellation_details.error_details))
 
-def send_to_groq(text):
+def init_llm():
     # Initialize memory
     memory = ConversationBufferWindowMemory(k=conversational_memory_length)
 
     # Initialize Groq Langchain chat object with fixed model
-    groq_chat = ChatGroq(
-        groq_api_key=groq_api_key, 
-        model_name=model_name
-    )
 
+    chat = ChatGroq(
+        groq_api_key=GROQ_API_KEY, 
+        model_name="llama3-70b-8192"
+    )
     prompt = PromptTemplate(
         input_variables=["history", "input"],
         template='''
-        貴方は愉快な会話できる友達です。毎度の回答はなるべく45文字以内に抑えてください。返答は、質問と同じ言語を使ってください。
+        System:貴方は愉快な会話できる友達です。毎度の回答はなるべく45文字以内に抑えてください。返答は、質問と同じ言語を使ってください。
+        
         Current conversation:
         {history}
         Human: {input}
@@ -93,14 +103,20 @@ def send_to_groq(text):
     )
     # Initialize conversation with memory
     conversation = ConversationChain(
-        llm=groq_chat,
+        llm=chat,
         prompt=prompt,
         memory=memory
     )
+    return conversation
 
+def send_to_llm(text):
+    global is_sentenct_spelled
+    global conversation
+    is_sentenct_spelled=True
 
     response = conversation.invoke(text)  # Updated method call based on deprecation warning
     print("Chatbot:", response['response'])
+
     thread=threading.Thread(target=speech_synthesis_with_auto_language_detection_to_speaker, args=(response['response'], ))
     thread.start()
     thread.join()
@@ -114,6 +130,7 @@ def speech_recognize_continuous_async_from_microphone():
         speechsdk.languageconfig.AutoDetectSourceLanguageConfig(languages=["ja-JP", "en-US"])
     speech_recognizer = speechsdk.SpeechRecognizer(speech_config=speech_config,auto_detect_source_language_config=auto_detect_source_language_config)
     done = False
+    global is_sentenct_spelled
 
     def recognizing_cb(evt: speechsdk.SpeechRecognitionEventArgs):
         global latest_user_utterance
@@ -123,8 +140,13 @@ def speech_recognize_continuous_async_from_microphone():
 
     def recognized_cb(evt: speechsdk.SpeechRecognitionEventArgs):
         print('RECOGNIZED: {}'.format(evt))
-        global latest_user_utterance
+        global latest_user_utterance,is_sentenct_spelled
         latest_user_utterance=evt.result.text
+        if is_sentenct_spelled == False and latest_user_utterance:
+            if len(latest_user_utterance)>1:
+                thread=threading.Thread(target=send_to_llm, args=(latest_user_utterance, ))
+                thread.start()
+                thread.join()
         # latest_user_utterance=send_to_groq(evt.result.text)
             
 
@@ -166,26 +188,32 @@ def speech_recognize_continuous_async_from_microphone():
 # マイク音声の終わりをより俊敏に検知するためのvad
 def callback_vad(flag):
     # print("vad", flag)
-    global latest_user_utterance
-    if flag == True:
+    global latest_user_utterance,is_sentenct_spelled
+    if flag == True: #SPEAKING
         latest_user_utterance = None
-    elif latest_user_utterance != None:
-        if len(latest_user_utterance)>1:
+        is_sentenct_spelled=False
+    elif latest_user_utterance != None: #SPEAKING DONE
+        if not is_sentenct_spelled and  len(latest_user_utterance)>1:
             print("sent to groq")
-            thread=threading.Thread(target=send_to_groq, args=(latest_user_utterance, ))
+            print(latest_user_utterance)
+            thread=threading.Thread(target=send_to_llm, args=(latest_user_utterance, ))
             thread.start()
             thread.join()
 
 global latest_user_utterance
+global is_sentenct_spelled
+global conversation
+
 latest_user_utterance = None
+is_sentenct_spelled=False
 vad = vad.GOOGLE_WEBRTC()
+conversation = init_llm()
 
 mic_thread = threading.Thread(target=speech_recognize_continuous_async_from_microphone)
 vad_thread = threading.Thread(target=vad.vad_loop, args=(callback_vad, ))
 mic_thread.start()
 vad_thread.start()
 
-thread_list = threading.enumerate()
-thread_list.remove(threading.main_thread())
-for thread in thread_list:
-    thread.join()
+
+mic_thread.join()
+vad_thread.join()

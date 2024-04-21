@@ -17,6 +17,7 @@ load_dotenv()
 # 環境変数を取得する
 claude_api_key = os.getenv('ANTHROPIC_API_KEY')
 AZURE_API_KEY = os.getenv('AZURE_API_KEY')
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 # Fixed model name and memory length
 model_name = "llama3-70b-8192"
@@ -79,13 +80,13 @@ def speech_synthesis_with_auto_language_detection_to_speaker(text):
         if cancellation_details.reason == speechsdk.CancellationReason.Error:
             print("Error details: {}".format(cancellation_details.error_details))
 
-def send_to_groq(text):
+def init_llm():
     # Initialize memory
     memory = ConversationBufferWindowMemory(k=conversational_memory_length)
 
     # Initialize Groq Langchain chat object with fixed model
 
-    groq_chat = ChatAnthropic(temperature=0, api_key=claude_api_key, model_name="claude-3-haiku-20240307")
+    chat = ChatAnthropic(temperature=0, api_key=claude_api_key, model_name="claude-3-haiku-20240307")
     prompt = PromptTemplate(
         input_variables=["history", "input"],
         template='''
@@ -99,14 +100,20 @@ def send_to_groq(text):
     )
     # Initialize conversation with memory
     conversation = ConversationChain(
-        llm=groq_chat,
+        llm=chat,
         prompt=prompt,
         memory=memory
     )
+    return conversation
 
+def send_to_llm(text):
+    global is_sentenct_spelled
+    global conversation
+    is_sentenct_spelled=True
 
     response = conversation.invoke(text)  # Updated method call based on deprecation warning
     print("Chatbot:", response['response'])
+
     thread=threading.Thread(target=speech_synthesis_with_auto_language_detection_to_speaker, args=(response['response'], ))
     thread.start()
     thread.join()
@@ -134,8 +141,7 @@ def speech_recognize_continuous_async_from_microphone():
         latest_user_utterance=evt.result.text
         if is_sentenct_spelled == False and latest_user_utterance:
             if len(latest_user_utterance)>1:
-                is_sentenct_spelled=True
-                thread=threading.Thread(target=send_to_groq, args=(latest_user_utterance, ))
+                thread=threading.Thread(target=send_to_llm, args=(latest_user_utterance, ))
                 thread.start()
                 thread.join()
         # latest_user_utterance=send_to_groq(evt.result.text)
@@ -187,16 +193,18 @@ def callback_vad(flag):
         if not is_sentenct_spelled and  len(latest_user_utterance)>1:
             print("sent to groq")
             print(latest_user_utterance)
-            is_sentenct_spelled=True
-            thread=threading.Thread(target=send_to_groq, args=(latest_user_utterance, ))
+            thread=threading.Thread(target=send_to_llm, args=(latest_user_utterance, ))
             thread.start()
             thread.join()
 
 global latest_user_utterance
 global is_sentenct_spelled
+global conversation
+
 latest_user_utterance = None
 is_sentenct_spelled=False
 vad = vad.GOOGLE_WEBRTC()
+conversation = init_llm()
 
 mic_thread = threading.Thread(target=speech_recognize_continuous_async_from_microphone)
 vad_thread = threading.Thread(target=vad.vad_loop, args=(callback_vad, ))
