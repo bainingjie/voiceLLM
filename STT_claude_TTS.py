@@ -10,15 +10,13 @@ from langchain_anthropic import ChatAnthropic
 from dotenv import load_dotenv
 import os
 
-# Groq API key
-groq_api_key = "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"
-
 
 # .envファイルを読み込む
 load_dotenv()
 
 # 環境変数を取得する
 api_keclaude_api_keyy = os.getenv('ANTHROPIC_API_KEY')
+AZURE_API_KEY = os.getenv('AZURE_API_KEY')
 
 # Fixed model name and memory length
 model_name = "llama3-70b-8192"
@@ -56,7 +54,7 @@ speech_key, service_region = "YourSubscriptionKey", "YourServiceRegion"
 def speech_synthesis_with_auto_language_detection_to_speaker(text):
     """performs speech synthesis to the default speaker with auto language detection
        Note: this is a preview feature, which might be updated in future versions."""
-    speech_config = speechsdk.SpeechConfig(subscription="252ced039853473b8acd8e525a7cf279", region="japaneast")
+    speech_config = speechsdk.SpeechConfig(subscription=AZURE_API_KEY, region="japaneast")
 
     # create the auto-detection language configuration without specific languages
     auto_detect_source_language_config = \
