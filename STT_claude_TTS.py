@@ -11,7 +11,7 @@ from langchain_anthropic import ChatAnthropic
 
 # Groq API key
 groq_api_key = "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"
-
+claude_api_key="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"
 # Fixed model name and memory length
 model_name = "llama3-70b-8192"
 conversational_memory_length = 5
@@ -79,7 +79,7 @@ def send_to_groq(text):
 
     # Initialize Groq Langchain chat object with fixed model
 
-    groq_chat = ChatAnthropic(temperature=0, api_key="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", model_name="claude-3-haiku-20240307")
+    groq_chat = ChatAnthropic(temperature=0, api_key=claude_api_key, model_name="claude-3-haiku-20240307")
     prompt = PromptTemplate(
         input_variables=["history", "input"],
         template='''
