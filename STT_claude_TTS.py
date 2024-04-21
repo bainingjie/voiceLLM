@@ -120,6 +120,7 @@ def speech_recognize_continuous_async_from_microphone():
         speechsdk.languageconfig.AutoDetectSourceLanguageConfig(languages=["ja-JP", "en-US"])
     speech_recognizer = speechsdk.SpeechRecognizer(speech_config=speech_config,auto_detect_source_language_config=auto_detect_source_language_config)
     done = False
+    global is_sentenct_spelled
 
     def recognizing_cb(evt: speechsdk.SpeechRecognitionEventArgs):
         global latest_user_utterance
@@ -129,8 +130,14 @@ def speech_recognize_continuous_async_from_microphone():
 
     def recognized_cb(evt: speechsdk.SpeechRecognitionEventArgs):
         print('RECOGNIZED: {}'.format(evt))
-        global latest_user_utterance
+        global latest_user_utterance,is_sentenct_spelled
         latest_user_utterance=evt.result.text
+        if is_sentenct_spelled == False and latest_user_utterance:
+            if len(latest_user_utterance)>1:
+                is_sentenct_spelled=True
+                thread=threading.Thread(target=send_to_groq, args=(latest_user_utterance, ))
+                thread.start()
+                thread.join()
         # latest_user_utterance=send_to_groq(evt.result.text)
             
 
@@ -172,19 +179,23 @@ def speech_recognize_continuous_async_from_microphone():
 # マイク音声の終わりをより俊敏に検知するためのvad
 def callback_vad(flag):
     # print("vad", flag)
-    global latest_user_utterance
+    global latest_user_utterance,is_sentenct_spelled
     if flag == True: #SPEAKING
         latest_user_utterance = None
+        is_sentenct_spelled=False
     elif latest_user_utterance != None: #SPEAKING DONE
-        if len(latest_user_utterance)>1:
+        if not is_sentenct_spelled and  len(latest_user_utterance)>1:
             print("sent to groq")
             print(latest_user_utterance)
+            is_sentenct_spelled=True
             thread=threading.Thread(target=send_to_groq, args=(latest_user_utterance, ))
             thread.start()
             thread.join()
 
 global latest_user_utterance
+global is_sentenct_spelled
 latest_user_utterance = None
+is_sentenct_spelled=False
 vad = vad.GOOGLE_WEBRTC()
 
 mic_thread = threading.Thread(target=speech_recognize_continuous_async_from_microphone)

@@ -12,7 +12,7 @@ BUFFER_SIZE=160
 # COLLECTION_LENGTH=100
 # SWITCH_LENGTH=70
 
-COLLECTION_LENGTH=10
+COLLECTION_LENGTH=50
 SWITCH_LENGTH=30
 
 class GOOGLE_WEBRTC():
@@ -34,7 +34,7 @@ class GOOGLE_WEBRTC():
 
         # 無音区間検出
         
-        self.vad = webrtcvad.Vad(2)#1~3まで指定できます。値が大きいほど敏感に認識するのでノイズが混ざる可能性があります。環境音が周りから入る環境なら2などに設定しても良いかも知れません。
+        self.vad = webrtcvad.Vad(1)#1~3まで指定できます。値が大きいほど敏感に認識するのでノイズが混ざる可能性があります。環境音が周りから入る環境なら2などに設定しても良いかも知れません。
         self.thread_alive = True
 
         self.vad_collection=[0 for _ in range(COLLECTION_LENGTH)]
@@ -53,10 +53,15 @@ class GOOGLE_WEBRTC():
             for each in self.vad_collection:
                 if each:
                     sum_vad +=1
+            
+            # 10 frame中9割がOFFなら話していない
             if sum_vad <2:
                 is_speaking_status=False
+                # print("OFF")
+            # 10 frame中9割がONなら話している
             elif sum_vad>8:
                 is_speaking_status=True
+                # print("ON")
 
             if is_speaking_status != self.before_result:
                 if callback != None:
