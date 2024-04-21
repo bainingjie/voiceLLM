@@ -15,7 +15,7 @@ import os
 load_dotenv()
 
 # 環境変数を取得する
-api_keclaude_api_keyy = os.getenv('ANTHROPIC_API_KEY')
+claude_api_key = os.getenv('ANTHROPIC_API_KEY')
 AZURE_API_KEY = os.getenv('AZURE_API_KEY')
 
 # Fixed model name and memory length
