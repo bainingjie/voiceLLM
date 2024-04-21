@@ -49,14 +49,14 @@ class GOOGLE_WEBRTC():
                 if  each :
                     switch_sum += 1
             # print(self.vad_collection,switch_sum,self.vad_collection[(-SWITCH_LENGTH-1)])
-            if switch_sum == 0 and self.vad_collection[(-SWITCH_LENGTH-1)] :
+            if switch_sum < 3 and self.vad_collection[(-SWITCH_LENGTH-1)] :
                 # print(self.vad_collection,switch_sum,self.vad_collection[(-SWITCH_LENGTH-1)])
                 if callback != None:
-                    # print("call back called")
+                    print("call back called")
                     callback(vad_result)
-            elif not self.vad_collection[-2] and vad_result:
+            elif not self.vad_collection[-4] and self.vad_collection[-3] and self.vad_collection[-2] and self.vad_collection[-1]:
                 if callback != None:
-                    # print("call back called")
+                    print("cleared called to")
                     callback(vad_result)
 
 
