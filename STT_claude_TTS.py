@@ -1,6 +1,6 @@
 import os
 import azure.cognitiveservices.speech as speechsdk
-import vad
+import vad_collection as vad
 from langchain.chains import ConversationChain
 from langchain.chains.conversation.memory import ConversationBufferWindowMemory
 from langchain_groq import ChatGroq
@@ -167,14 +167,15 @@ def speech_recognize_continuous_async_from_microphone():
 def callback_vad(flag):
     # print("vad", flag)
     global latest_user_utterance
-    if flag == True:
+    if flag == True: #SPEAKING
         latest_user_utterance = None
-    elif latest_user_utterance != None:
+    elif latest_user_utterance != None: #SPEAKING DONE
         if len(latest_user_utterance)>1:
             print("sent to groq")
-            thread=threading.Thread(target=send_to_groq, args=(latest_user_utterance, ))
-            thread.start()
-            thread.join()
+            print(latest_user_utterance)
+            # thread=threading.Thread(target=send_to_groq, args=(latest_user_utterance, ))
+            # thread.start()
+            # thread.join()
 
 global latest_user_utterance
 latest_user_utterance = None
