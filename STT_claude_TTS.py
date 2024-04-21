@@ -2,7 +2,7 @@ import os
 import azure.cognitiveservices.speech as speechsdk
 import vad_collection as vad
 from langchain.chains import ConversationChain
-from langchain.chains.conversation.memory import ConversationBufferWindowMemory
+from langchain.chains.conversation.memory import ConversationBufferWindowMemory,ConversationBufferMemory
 from langchain_groq import ChatGroq
 from langchain.prompts import PromptTemplate
 import threading,time
@@ -80,24 +80,34 @@ def speech_synthesis_with_auto_language_detection_to_speaker(text):
         if cancellation_details.reason == speechsdk.CancellationReason.Error:
             print("Error details: {}".format(cancellation_details.error_details))
 
+from langchain.prompts import (
+    ChatPromptTemplate,
+    SystemMessagePromptTemplate,
+    HumanMessagePromptTemplate,
+    MessagesPlaceholder,
+)
 def init_llm():
     # Initialize memory
-    memory = ConversationBufferWindowMemory(k=conversational_memory_length)
+    memory = ConversationBufferMemory(return_messages=True)
 
     # Initialize Groq Langchain chat object with fixed model
 
     chat = ChatAnthropic(temperature=0, api_key=claude_api_key, model_name="claude-3-haiku-20240307")
-    prompt = PromptTemplate(
-        input_variables=["history", "input"],
-        template='''
-        System:貴方は愉快な会話できる友達です。毎度の回答はなるべく45文字以内に抑えてください。返答は、質問と同じ言語を使ってください。
+    # prompt = PromptTemplate(
+    #     input_variables=["history", "input"],
+    #     template='''
+    #     System:。
         
-        Current conversation:
-        {history}
-        Human: {input}
-        AI Assistant:"""
-        '''
-    )
+    #     Current conversation:
+    #     {history}
+    #     Human: {input}
+    #     AI Assistant:"""
+    #     '''
+    # )
+    prompt = ChatPromptTemplate.from_messages([
+    SystemMessagePromptTemplate.from_template("貴方は愉快な会話できる友達、ありさです。毎度の回答はなるべく45文字以内に抑えてください。返答は、質問と同じ言語を使ってください"),
+    MessagesPlaceholder(variable_name="history"),
+    HumanMessagePromptTemplate.from_template("{input}")])
     # Initialize conversation with memory
     conversation = ConversationChain(
         llm=chat,
