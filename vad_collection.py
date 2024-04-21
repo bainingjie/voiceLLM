@@ -9,8 +9,11 @@ FRAME_DURATION=10
 
 # BUFFER_SIZE=int(RATE/FRAME_DURATION/100) # RATE/BUFFER_SIZE/100
 BUFFER_SIZE=160
+# COLLECTION_LENGTH=100
+# SWITCH_LENGTH=70
+
 COLLECTION_LENGTH=100
-SWITCH_LENGTH=70
+SWITCH_LENGTH=60
 
 class GOOGLE_WEBRTC():
 
@@ -47,12 +50,16 @@ class GOOGLE_WEBRTC():
             switch_sum= 0
             for each in self.vad_collection[(-SWITCH_LENGTH):]:
                 if  each :
+                    flag += 1
+                else:
+                    flag = 0
+                if flag == 3:
                     switch_sum += 1
             # print(self.vad_collection,switch_sum,self.vad_collection[(-SWITCH_LENGTH-1)])
-            if switch_sum < 3 and self.vad_collection[(-SWITCH_LENGTH-1)] :
+            if switch_sum < 1 and self.vad_collection[(-SWITCH_LENGTH-1)] :
                 # print(self.vad_collection,switch_sum,self.vad_collection[(-SWITCH_LENGTH-1)])
                 if callback != None:
-                    print("call back called")
+                    # print("call back called")
                     callback(vad_result)
             elif not self.vad_collection[-4] and self.vad_collection[-3] and self.vad_collection[-2] and self.vad_collection[-1]:
                 if callback != None:
