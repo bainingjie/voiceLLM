@@ -8,5 +8,5 @@ pip install -qU langchain-anthropic
 pip install python-dotenv
 
 実行：
-python3 STT_claude_TTS.py
-↑実行する前に、claudeのapi_keyを入れてください。
+python3 STT_LLM_TTS.py
+↑実行する前に、.envを作成してください。

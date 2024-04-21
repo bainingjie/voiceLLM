@@ -2,7 +2,7 @@ import os
 import azure.cognitiveservices.speech as speechsdk
 import vad_collection as vad
 from langchain.chains import ConversationChain
-from langchain.chains.conversation.memory import ConversationBufferWindowMemory
+from langchain.chains.conversation.memory import ConversationBufferWindowMemory,ConversationBufferMemory
 from langchain_groq import ChatGroq
 from langchain.prompts import PromptTemplate
 import threading,time
@@ -50,9 +50,7 @@ except ImportError:
 # Replace with your own subscription key and service region (e.g., "westus").
 speech_key, service_region = "YourSubscriptionKey", "YourServiceRegion"
 
-
-
-def speech_synthesis_with_auto_language_detection_to_speaker(text):
+def speech_synthesis_init():
     """performs speech synthesis to the default speaker with auto language detection
        Note: this is a preview feature, which might be updated in future versions."""
     speech_config = speechsdk.SpeechConfig(subscription=AZURE_API_KEY, region="japaneast")
@@ -64,7 +62,11 @@ def speech_synthesis_with_auto_language_detection_to_speaker(text):
     # Creates a speech synthesizer using the default speaker as audio output.
     speech_synthesizer = speechsdk.SpeechSynthesizer(
         speech_config=speech_config, auto_detect_source_language_config=auto_detect_source_language_config)
+    return speech_synthesizer
 
+def speech_synthesis_with_auto_language_detection_to_speaker(text):
+
+    global speech_synthesizer
     # while True:
         # Receives a text from console input and synthesizes it to speaker.
         # For example, you can input "Bonjour le monde. Hello world.", then you will hear "Bonjour le monde."
@@ -80,33 +82,32 @@ def speech_synthesis_with_auto_language_detection_to_speaker(text):
         if cancellation_details.reason == speechsdk.CancellationReason.Error:
             print("Error details: {}".format(cancellation_details.error_details))
 
+from langchain.prompts import (
+    ChatPromptTemplate,
+    SystemMessagePromptTemplate,
+    HumanMessagePromptTemplate,
+    MessagesPlaceholder,
+)
 def init_llm():
     # Initialize memory
-    memory = ConversationBufferWindowMemory(k=conversational_memory_length)
+    memory = ConversationBufferMemory(return_messages=True)
 
     # Initialize Groq Langchain chat object with fixed model
 
-    chat = ChatGroq(
-        groq_api_key=GROQ_API_KEY, 
-        model_name="llama3-70b-8192"
-    )
-    prompt = PromptTemplate(
-        input_variables=["history", "input"],
-        template='''
-        System:貴方は愉快な会話できる友達です。毎度の回答はなるべく45文字以内に抑えてください。返答は、質問と同じ言語を使ってください。
-        
-        Current conversation:
-        {history}
-        Human: {input}
-        AI Assistant:"""
-        '''
-    )
+    chat = ChatAnthropic(temperature=0, api_key=claude_api_key, model_name="claude-3-haiku-20240307")
+    # chat = ChatGroq(groq_api_key=GROQ_API_KEY, model_name="llama3-70b-8192")
+
+    prompt = ChatPromptTemplate.from_messages([
+    SystemMessagePromptTemplate.from_template(system_promt),
+    MessagesPlaceholder(variable_name="history"),
+    HumanMessagePromptTemplate.from_template("{input}")])
     # Initialize conversation with memory
     conversation = ConversationChain(
         llm=chat,
         prompt=prompt,
         memory=memory
     )
+
     return conversation
 
 def send_to_llm(text):
@@ -202,13 +203,44 @@ def callback_vad(flag):
 
 global latest_user_utterance
 global is_sentenct_spelled
-global conversation
+global conversation,speech_synthesizer
+global system_promt
+
+
+greeting_message=": リッツカールトン東京でございます。本日はお電話いただきまして誠にありがとうございます。本日はどのようなご用件でしょうか。"
+system_promt='''
+
+貴方はリッツカールトン東京の顧客サポート担当です。下記のscriptを参考にして、お客様の質問に答えてください。毎度の回答はなるべく45文字以内に抑えてください。
+
+お客様: 今週金曜日に1泊で宿泊予約をしたいのですが、空室はありますか?
+
+ホテルスタッフ: ありがとうございます。少々お待ちください。金曜日のご宿泊でございますね。お調べいたしますので、今しばらくお待ちくださいませ。
+(少し待ってから)只今確認いたしましたところ、金曜日は空室がございます。ご予約を承らせていただきます。お客様のお名前と連絡先をお教えいただけますでしょうか。
+
+お客様: 山田太郎です。電話番号は090-1234-5678です。
+
+ホテルスタッフ: 山田太郎様、承知いたしました。ご連絡先は090-1234-5678ですね。ご宿泊は金曜日のお一泊で、4月19日でございます。お部屋のタイプやご要望はございますでしょうか。
+
+お客様: 禁煙のツインルームでお願いします。あと、レイトチェックアウトは可能ですか?
+
+ホテルスタッフ: 禁煙のツインルームですね。かしこまりました。レイトチェックアウトにつきましては、通常12時のところを14時まで無料で延長させていただきます。朝食のご希望はいかがいたしましょうか。
+
+お客様: それは助かります。朝食はルームサービスでお願いできますか。
+
+ホテルスタッフ: はい、朝食はルームサービスでも承っております。ご希望の時間帯がございましたら事前にお知らせくださいませ。山田様、ご予約内容を確認させていただきます。金曜日4月19日のお一泊、禁煙ツインルームにてレイトチェックアウト14時まで、朝食はルームサービスでのご用命ですね。
+
+お客様: はい、その通りです。
+
+ホテルスタッフ: ご予約ありがとうございます。当日はお気をつけてお越しくださいませ。ご宿泊を心よりお待ち申し上げております。リッツカールトン東京のでした。本日はお電話いただき誠にありがとうございました。
+
+'''
 
 latest_user_utterance = None
 is_sentenct_spelled=False
 vad = vad.GOOGLE_WEBRTC()
 conversation = init_llm()
-
+speech_synthesizer=speech_synthesis_init()
+speech_synthesis_with_auto_language_detection_to_speaker(greeting_message)
 mic_thread = threading.Thread(target=speech_recognize_continuous_async_from_microphone)
 vad_thread = threading.Thread(target=vad.vad_loop, args=(callback_vad, ))
 mic_thread.start()
