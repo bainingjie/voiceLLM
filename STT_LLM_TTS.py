@@ -131,14 +131,14 @@ def send_to_llm(text):
     # thread.start()
     # thread.join()
 
-global speech_recognize_continuous_async_from_microphone
+
 def speech_recognize_continuous_async_from_microphone():
     """performs continuous speech recognition asynchronously with input from microphone"""
-    speech_config = speechsdk.SpeechConfig(subscription="252ced039853473b8acd8e525a7cf279", region="japaneast")
+    speech_config = speechsdk.SpeechConfig(subscription=AZURE_API_KEY, region="japaneast")
     # The default language is "en-us".
     speech_config.speech_recognition_language="ja-JP"
-    audio_config = speechsdk.audio.AudioConfig(use_default_microphone=True)
-    speech_recognizer = speechsdk.SpeechRecognizer(speech_config=speech_config, audio_config=audio_config)
+
+    speech_recognizer = speechsdk.SpeechRecognizer(speech_config=speech_config)
 
     # auto_detect_source_language_config = \
     #     speechsdk.languageconfig.AutoDetectSourceLanguageConfig(languages=["ja-JP", "en-US"])
@@ -156,13 +156,17 @@ def speech_recognize_continuous_async_from_microphone():
 
     def recognized_cb(evt: speechsdk.SpeechRecognitionEventArgs):
         print('RECOGNIZED: {}'.format(evt))
-        global latest_user_utterance,sentence_spoken_count,sentence_processed_count
+        global latest_user_utterance,sentence_spoken_count,sentence_processed_count,is_vad_before
         latest_user_utterance=evt.result.text
-        sentence_spoken_count += 1
+        
+        print(sentence_spoken_count,sentence_processed_count,is_vad_before)
+        if len(latest_user_utterance)>0:
+            sentence_spoken_count += 1
         
         if sentence_spoken_count>sentence_processed_count and latest_user_utterance:
             if len(latest_user_utterance)>1:
-                print(sentence_spoken_count,sentence_processed_count)
+                is_vad_before = 0
+                
                 sentence_processed_count +=1
                 print("thread llm from cb")
                 print(latest_user_utterance)
@@ -175,6 +179,7 @@ def speech_recognize_continuous_async_from_microphone():
     def stop_cb(evt: speechsdk.SessionEventArgs):
         """callback that signals to stop continuous recognition"""
         print('CLOSING on {}'.format(evt))
+        print(evt)
         nonlocal done
         done = True
 
@@ -210,19 +215,18 @@ def speech_recognize_continuous_async_from_microphone():
 # マイク音声の終わりをより俊敏に検知するためのvad
 def callback_vad(flag):
     # print("vad", flag)
-    global latest_user_utterance,sentence_processed_count,sentence_spoken_count
-    last_sentence_processed_count=-1
+    global latest_user_utterance,sentence_processed_count,sentence_spoken_count,is_vad_before
     if flag == True: #SPEAKING
         latest_user_utterance = None
         # print("is_sentenct_spelled turned FALSE ")
         # is_sentenct_spelled=False
     elif latest_user_utterance != None: #SPEAKING DONE
-        if (sentence_spoken_count == sentence_processed_count) and (last_sentence_processed_count !=sentence_processed_count )and len(latest_user_utterance)>1:
+        if (sentence_spoken_count == sentence_processed_count) and (not is_vad_before) and len(latest_user_utterance)>1:
             # print("sent to groq")
+            is_vad_before = 1
             print("thread llm from vad")
             print(sentence_spoken_count,sentence_processed_count)
             sentence_processed_count+=1
-            last_sentence_processed_count = sentence_processed_count
             print(latest_user_utterance)
             # print("is_sentenct_spelled turned TRUE ")
             thread=threading.Thread(target=send_to_llm, args=(latest_user_utterance, ))
@@ -235,6 +239,8 @@ global sentence_spoken_count
 sentence_spoken_count=0
 global sentence_processed_count
 sentence_processed_count=0
+global is_vad_before
+is_vad_before = 0
 
 global conversation
 conversation = init_llm()
@@ -244,12 +250,12 @@ speech_synthesizer=speech_synthesis_init()
 vad = vad.GOOGLE_WEBRTC()
 speech_synthesis_with_auto_language_detection_to_speaker(greeting_message)
 
-speech_recognize_continuous_async_from_microphone()
+
 
 vad_thread = threading.Thread(target=vad.vad_loop, args=(callback_vad, ))
 vad_thread.start()
 
-
+speech_recognize_continuous_async_from_microphone()
 # mic_thread = threading.Thread(target=speech_recognize_continuous_async_from_microphone)
 # mic_thread.start()
 
