@@ -3,6 +3,9 @@ from langchain.chains.conversation.memory import ConversationBufferWindowMemory
 from langchain_groq import ChatGroq
 from langchain.prompts import PromptTemplate
 from langchain_anthropic import ChatAnthropic
+from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
+from langchain.callbacks.base import BaseCallbackHandler
+from langchain.callbacks.manager import AsyncCallbackManager
 conversational_memory_length = 5
 
 # Initialize memory
@@ -12,8 +15,22 @@ import os
 claude_api_key = os.getenv('ANTHROPIC_API_KEY')
 # Initialize Groq Langchain chat object with fixed model
 
+class MyCustomCallbackHandler(BaseCallbackHandler):
+    def __init__(self):
+        self.temp = ""
 
-chat = ChatAnthropic(temperature=0, api_key=claude_api_key, model_name="claude-3-opus-20240229")
+    def on_llm_new_token(self, token: str, **kwargs: any) -> None:
+        '''新しいtokenが来たらprintする'''
+        self.temp = self.temp + token
+        
+        for split_word in ["、","。", "?", "!"]:
+            if split_word in self.temp:
+                print(self.temp)
+                self.temp = ""
+
+
+chat = ChatAnthropic(temperature=0, api_key=claude_api_key, model_name="claude-3-opus-20240229",    
+    streaming=True,callback_manager=AsyncCallbackManager([MyCustomCallbackHandler()]))
 
 prompt = PromptTemplate(
     input_variables=["history", "input"],
@@ -38,4 +55,7 @@ while True:
         print("Chatbot: Goodbye!")
         break
     response = conversation.invoke(user_input)  # Updated method call based on deprecation warning
-    print("Chatbot:", response['response'])
+    # for chunk in response:
+    #     print (chunk['response'])
+    print(response)
+    # print("Chatbot:", response['response'])

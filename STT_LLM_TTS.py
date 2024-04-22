@@ -5,11 +5,12 @@ from langchain.chains import ConversationChain
 from langchain.chains.conversation.memory import ConversationBufferWindowMemory,ConversationBufferMemory
 from langchain_groq import ChatGroq
 from langchain.prompts import PromptTemplate
-from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
+from langchain.callbacks.base import BaseCallbackHandler
+from langchain.callbacks.manager import AsyncCallbackManager
 import threading,time
 from langchain_anthropic import ChatAnthropic
 from dotenv import load_dotenv
-import os
+import os,copy
 
 from prompt import * 
 
@@ -44,7 +45,8 @@ def init_llm():
 
     # Initialize Groq Langchain chat object with fixed model
 
-    chat = ChatAnthropic(temperature=0, api_key=claude_api_key, model_name="claude-3-haiku-20240307")
+    chat = ChatAnthropic(temperature=0, api_key=claude_api_key, model_name="claude-3-haiku-20240307",    
+    streaming=True,callback_manager=AsyncCallbackManager([MyCustomCallbackHandler()]))
     # chat = ChatGroq(groq_api_key=GROQ_API_KEY, model_name="llama3-70b-8192")
 
     prompt = ChatPromptTemplate.from_messages([
@@ -59,6 +61,23 @@ def init_llm():
     )
 
     return conversation
+
+class MyCustomCallbackHandler(BaseCallbackHandler):    
+    def __init__(self):
+        self.temp = ""
+
+    def on_llm_new_token(self, token: str, **kwargs: any) -> None:
+        '''新しいtokenが来たらprintする'''
+        self.temp = self.temp + token
+        
+        for split_word in ["、","。", "?", "!"]:
+            if split_word in self.temp:
+                print(self.temp)
+                temp2=copy.deepcopy(self.temp)
+                self.temp = ""
+                speech_synthesis_with_auto_language_detection_to_speaker(temp2)
+                
+
 
 def speech_synthesis_init():
     """performs speech synthesis to the default speaker with auto language detection
@@ -108,16 +127,18 @@ def send_to_llm(text):
     response = conversation.invoke(text)  # Updated method call based on deprecation warning
     print("Chatbot:", response['response'])
 
-    thread=threading.Thread(target=speech_synthesis_with_auto_language_detection_to_speaker, args=(response['response'], ))
-    thread.start()
-    thread.join()
-    
+    # thread=threading.Thread(target=speech_synthesis_with_auto_language_detection_to_speaker, args=(response['response'], ))
+    # thread.start()
+    # thread.join()
+
+global speech_recognize_continuous_async_from_microphone
 def speech_recognize_continuous_async_from_microphone():
     """performs continuous speech recognition asynchronously with input from microphone"""
     speech_config = speechsdk.SpeechConfig(subscription="252ced039853473b8acd8e525a7cf279", region="japaneast")
     # The default language is "en-us".
     speech_config.speech_recognition_language="ja-JP"
-    speech_recognizer = speechsdk.SpeechRecognizer(speech_config=speech_config)
+    audio_config = speechsdk.audio.AudioConfig(use_default_microphone=True)
+    speech_recognizer = speechsdk.SpeechRecognizer(speech_config=speech_config, audio_config=audio_config)
 
     # auto_detect_source_language_config = \
     #     speechsdk.languageconfig.AutoDetectSourceLanguageConfig(languages=["ja-JP", "en-US"])
@@ -223,12 +244,12 @@ speech_synthesizer=speech_synthesis_init()
 vad = vad.GOOGLE_WEBRTC()
 speech_synthesis_with_auto_language_detection_to_speaker(greeting_message)
 
-
+speech_recognize_continuous_async_from_microphone()
 
 vad_thread = threading.Thread(target=vad.vad_loop, args=(callback_vad, ))
 vad_thread.start()
 
-speech_recognize_continuous_async_from_microphone()
+
 # mic_thread = threading.Thread(target=speech_recognize_continuous_async_from_microphone)
 # mic_thread.start()
 
