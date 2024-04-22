@@ -156,10 +156,10 @@ def speech_recognize_continuous_async_from_microphone():
 
     def recognized_cb(evt: speechsdk.SpeechRecognitionEventArgs):
         print('RECOGNIZED: {}'.format(evt))
-        global latest_user_utterance,sentence_spoken_count,sentence_processed_count,is_vad_before
+        global latest_user_utterance,sentence_spoken_count,sentence_processed_count,is_vad_before,last_processed_by_cb
         latest_user_utterance=evt.result.text
         
-        print(sentence_spoken_count,sentence_processed_count,is_vad_before)
+        print(sentence_spoken_count,sentence_processed_count,is_vad_before,last_processed_by_cb)
         if len(latest_user_utterance)>0:
             sentence_spoken_count += 1
         
@@ -168,6 +168,7 @@ def speech_recognize_continuous_async_from_microphone():
                 is_vad_before = 0
                 
                 sentence_processed_count +=1
+                
                 print("thread llm from cb")
                 print(latest_user_utterance)
                 thread=threading.Thread(target=send_to_llm, args=(latest_user_utterance, ))
@@ -215,18 +216,19 @@ def speech_recognize_continuous_async_from_microphone():
 # マイク音声の終わりをより俊敏に検知するためのvad
 def callback_vad(flag):
     # print("vad", flag)
-    global latest_user_utterance,sentence_processed_count,sentence_spoken_count,is_vad_before
+    global latest_user_utterance,sentence_processed_count,sentence_spoken_count,is_vad_before,last_processed_by_cb
     if flag == True: #SPEAKING
         latest_user_utterance = None
         # print("is_sentenct_spelled turned FALSE ")
         # is_sentenct_spelled=False
     elif latest_user_utterance != None: #SPEAKING DONE
-        if (sentence_spoken_count == sentence_processed_count) and (not is_vad_before) and len(latest_user_utterance)>1:
+        if (sentence_spoken_count == sentence_processed_count) and (not is_vad_before) and ((last_processed_by_cb+1) != (sentence_processed_count)) and len(latest_user_utterance)>1:
             # print("sent to groq")
             is_vad_before = 1
             print("thread llm from vad")
             print(sentence_spoken_count,sentence_processed_count)
             sentence_processed_count+=1
+            last_processed_by_cb = sentence_processed_count
             print(latest_user_utterance)
             # print("is_sentenct_spelled turned TRUE ")
             thread=threading.Thread(target=send_to_llm, args=(latest_user_utterance, ))
@@ -241,6 +243,8 @@ global sentence_processed_count
 sentence_processed_count=0
 global is_vad_before
 is_vad_before = 0
+global last_processed_by_cb
+last_processed_by_cb=0
 
 global conversation
 conversation = init_llm()
@@ -252,8 +256,8 @@ speech_synthesis_with_auto_language_detection_to_speaker(greeting_message)
 
 
 
-vad_thread = threading.Thread(target=vad.vad_loop, args=(callback_vad, ))
-vad_thread.start()
+# vad_thread = threading.Thread(target=vad.vad_loop, args=(callback_vad, ))
+# vad_thread.start()
 
 speech_recognize_continuous_async_from_microphone()
 # mic_thread = threading.Thread(target=speech_recognize_continuous_async_from_microphone)
@@ -261,4 +265,4 @@ speech_recognize_continuous_async_from_microphone()
 
 # mic_thread.join()
 
-vad_thread.join()
+# vad_thread.join()
